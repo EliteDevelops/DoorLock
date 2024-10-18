@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AQRA Authentication</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lobster&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #282c34;
+            color: white;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+        }
+
+        h1 {
+            margin-top: 20px;
+            font-size: 3rem;
+            font-family: 'Lobster', cursive; /* Custom font */
+            animation: fadeIn 2s; /* Animation for fade in effect */
+            cursor: pointer; /* Cursor changes to pointer on hover */
+        }
+
+        .infinity-sign {
+            width: 100px;
+            height: 50px;
+            border: 10px solid white;
+            border-radius: 50px;
+            position: relative;
+            animation: draw 2s forwards; /* Animation to draw the sign */
+            opacity: 0; /* Start invisible */
+            cursor: pointer; /* Cursor changes to pointer on hover */
+            margin-top: 20px;
+        }
+
+        .infinity-sign::before,
+        .infinity-sign::after {
+            content: '';
+            width: 100px;
+            height: 50px;
+            border: 10px solid white;
+            border-radius: 50px;
+            position: absolute;
+            top: 0;
+            opacity: 0; /* Start invisible */
+        }
+
+        .infinity-sign::before {
+            left: -50px;
+            transform: rotate(180deg);
+        }
+
+        .infinity-sign::after {
+            left: 50px;
+        }
+
+        @keyframes draw {
+            0% {
+                transform: scale(0);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            100% {
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        /* Verification Method Styles */
+        .method-container {
+            display: none; /* Hide by default */
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .button {
+            padding: 20px 40px;
+            font-size: 1.5rem;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+            transition: background-color 0.3s;
+        }
+
+        .button:hover {
+            background-color: #45a049;
+        }
+
+        /* QR Code Scanner Styles */
+        #reader {
+            width: 100%;
+            max-width: 600px;
+            height: 400px;
+            border: 2px solid white;
+            margin-top: 20px;
+            border-radius: 10px;
+        }
+
+        .message {
+            margin-top: 20px;
+            font-size: 1.5rem;
+            color: #4CAF50;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+    </style>
+</head>
+<body>
+    <h1 onclick="showVerificationMethods()">AQRA</h1>
+    <div class="infinity-sign" onclick="showVerificationMethods()" id="infinity-sign"></div>
+
+    <div class="method-container" id="methodContainer">
+        <h1>Choose Verification Method</h1>
+        <button class="button" onclick="showQRCodeScanner()">QR Code</button>
+        <button class="button" onclick="showKeypad()">Keypad</button>
+    </div>
+
+    <div id="reader" class="hidden"></div>
+    <div class="message hidden" id="message"></div>
+    
+    <div class="keypad hidden" id="keypadContainer">
+        <input type="text" id="password" placeholder="Enter Password" />
+        <div class="keypad">
+            <button onclick="enterPassword('1')">1</button>
+            <button onclick="enterPassword('2')">2</button>
+            <button onclick="enterPassword('3')">3</button>
+            <button onclick="enterPassword('4')">4</button>
+            <button onclick="enterPassword('5')">5</button>
+            <button onclick="enterPassword('6')">6</button>
+            <button onclick="enterPassword('7')">7</button>
+            <button onclick="enterPassword('8')">8</button>
+            <button onclick="enterPassword('9')">9</button>
+            <button onclick="clearPassword()">C</button>
+            <button onclick="enterPassword('0')">0</button>
+            <button onclick="submitPassword()">Enter</button>
+        </div>
+    </div>
+
+    <script>
+        const predefinedQRCode = "DOOR_OPEN"; // Predefined QR code content
+        const correctPassword = "1234"; // Predefined password for keypad
+        const messageDiv = document.getElementById("message");
+        const methodContainer = document.getElementById("methodContainer");
+        const readerDiv = document.getElementById("reader");
+        const keypadContainer = document.getElementById("keypadContainer");
+
+        function showVerificationMethods() {
+            methodContainer.style.display = "flex";
+            document.querySelector("h1").style.display = "none"; // Hide AQRA text
+            document.querySelector(".infinity-sign").style.display = "none"; // Hide infinity sign
+        }
+
+        function showQRCodeScanner() {
+            readerDiv.style.display = "block";
+            keypadContainer.style.display = "none"; // Hide keypad
+            methodContainer.style.display = "none"; // Hide method container
+            startQRCodeScanner(); // Start QR Code Scanner
+        }
+
+        function showKeypad() {
+            readerDiv.style.display = "none"; // Hide QR scanner
+            keypadContainer.style.display = "block"; // Show keypad
+            methodContainer.style.display = "none"; // Hide method container
+        }
+
+        function startQRCodeScanner() {
+            // Create instance of the scanner
+            const html5QrcodeScanner = new Html5Qrcode("reader");
+
+            // Start scanning with the camera
+            html5QrcodeScanner.start(
+                { facingMode: "environment" }, // Use the environment camera
+                {
+                    fps: 10,
+                    qrbox: 250 // Defines the size of the scanning box
+                },
+                onScanSuccess,
+                onScanError
+            ).catch(err => {
+                console.error("Unable to start scanning:", err);
+            });
+        }
+
+        function onScanSuccess(qrCodeMessage) {
+            if (qrCodeMessage === predefinedQRCode) {
+                messageDiv.textContent = "Door is opening...";
+                messageDiv.classList.remove("hidden");
+                stopScanning();
+                setTimeout(navigateToDashboard, 2000); // Navigate after 2 seconds
+            } else {
+                messageDiv.textContent = "Invalid QR Code.";
+                messageDiv.classList.remove("hidden");
+            }
+        }
+
+        function onScanError(errorMessage) {
+            // Handle error if needed
+        }
+
+        function stopScanning() {
+            html5QrcodeScanner.clear();
+        }
+
+        // Keypad functionality
+        function enterPassword(number) {
+            document.getElementById("password").value += number;
+        }
+
+        function clearPassword() {
+            document.getElementById("password").value = '';
+        }
+
+        function submitPassword() {
+            if (document.getElementById("password").value === correctPassword) {
+                alert("Password is correct. Navigating to Dashboard...");
+                navigateToDashboard();
+            } else {
+                alert("Incorrect Password.");
+                clearPassword();
+            }
+        }
+
+        function navigateToDashboard() {
+            alert("Welcome to the Dashboard!"); // This can be a redirect to another page
+        }
+
+        // Show infinity sign after a delay
+        setTimeout(() => {
+            document.getElementById('infinity-sign').style.opacity = 1;
+        }, 1000); // Fade in effect after 1 second
+    </script>
+</body>
+</html>
